@@ -5,6 +5,17 @@ using namespace cv;
 using namespace rs;
 
 #define _SHOW_PHOTO
+/*************************************************************************
+*  函数名称：currentTimeUs
+*  功能说明：任务计时
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-29
+*************************************************************************/
+double currentTimeUs()
+{
+    return cvGetTickCount() / cvGetTickFrequency();
+}
 
 RMVideoCapture capture("/dev/video0", 3);
 char window_name[30] = "Tuning";
@@ -405,13 +416,121 @@ void *KylinBotMarkDetecThreadFunc(void *param)
 *  参数说明：无
 *  函数返回：无
 *  修改时间：2017-07-27
-×  TODO: 添加初始化
+*  TODO: 添加初始化
 *************************************************************************/
 void init()
 {
 }
+/*************************************************************************
+*  函数名称：calibGrabBox
+*  功能说明：抓取盒子的时候，进行里程计校准
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+void calibGrabBox()
+{
+}
+/*************************************************************************
+*  函数名称：calibPutBox
+*  功能说明：放盒子的时候，进行里程计校准
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+void calibPutBox()
+{
+}
+/*************************************************************************
+*  函数名称：txMoveMsg
+*  功能说明：小车移动，值传递，发送给UART
+*  参数说明：三个方向的位置和速度
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+void txMoveMsg(int16_t positionX, int16_t speedX, int16_t positionY, int16_t speedY, int16_t positionZ, int16_t speedZ)
+{
+}
+/*************************************************************************
+*  函数名称：txClawBoardMsg
+*  功能说明：爪子和挡板，值传递，发送给UART
+*  参数说明：爪子和挡板的位置和速度
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+void txClawBoardMsg(int16_t positionClaw, int16_t speedClaw, int16_t positionBoard, int16_t speedBoard)
+{
+}
+
+/*************************************************************************
+*  函数名称：flagsSet
+*  功能说明：标志位, 某一位置位函数
+*  参数说明：标志位, 标志位的哪一位置位, 置成 0 还是 1
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+uint32_t flagsSet(uint32_t flags, int controlBit, int bit)
+{
+    // 置 1
+    if (bit == 1)
+    {
+        flags |= (1u << controlBit);
+    }
+    else if (bit == 0)
+    {
+        flags &= ~(1u << controlBit);
+    }
+    else
+    {
+        return flags;
+    }
+    return flags;
+}
+
+/*************************************************************************
+*  函数名称：flagsRead
+*  功能说明：标志位, 读取标志位函数
+*  参数说明：标志位, 读取标志位的哪一位
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+int flagsRead(uint32_t flags, int readBit)
+{
+    flags &= (1u << readBit);
+    if (flags == 0)
+    {
+        return 0;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+/*************************************************************************
+*  函数名称：pileBoxes
+*  功能说明：堆叠盒子
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+bool pileBoxes()
+{
+    bool result = false;
+    return result;
+}
+
 int main()
 {
+    // 计时函数
+    missionStartTimeUs = currentTimeUs();
     // 相机相关参数设定
     if (!setcamera())
     {
@@ -445,13 +564,233 @@ int main()
         // workState: 0->
         switch (workState)
         {
-        case 0:
-            break;
         case 1:
+            // 1. 矩形引导小车前进，直到 realsense 检测到的距离小于多少时, 切换到 case2
+            detection_mode = 1; // 矩形检测
+            workStageCout = "阶段 1 : ";
+            workStateCout = "矩形引导小车抓盒子";
+
+            // 发送小车前进指令
+            // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
+            txMoveMsg(tx, X_SPEED, tz, Y_SPEED, ry, Z_SPEED);
+            txClawBoardMsg(0, 0, 0, 0);
+
+            // TODO: 根据线程中的标志位切换来修改 if 语句, 对照之前的程序
+            if (tx < DISTANCE_RECTANGLE_TO_ARROW)
+            {
+                workState = 2;
+                detection_mode = 2;
+            }
+            break;
+        case 2:
+            // 2. 箭头引导小车前进，直到盒子完全进入小车(如何判断)
+            detection_mode = 2; // 箭头检测
+            workStageCout = "阶段 2 : ";
+            workStateCout = "箭头引导小车抓盒子";
+
+            // 发送小车前进指令
+            // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
+            // TODO: 确认坐标系
+            txMoveMsg(tx, X_SPEED, tz, Y_SPEED, ry, Z_SPEED);
+            txClawBoardMsg(0, 0, 0, 0);
+            // TODO: 根据线程中的标志位切换来修改 if 语句, 对照之前的程序
+            if (tx < DISTANCE_RECTANGLE_TO_ARROW)
+            {
+                workState = 3;
+                detection_mode = 0;
+            }
+            break;
+        case 3:
+            // 3. 抓取盒子
+            detection_mode = 0; // 关闭检测程序
+            workStageCout = "阶段 3 : ";
+            workStateCout = "抓取盒子";
+
+            // 小车静止不动
+            txMoveMsg(0, 0, 0, 0, 0, 0);
+            // TODO: 爪子应该是先合拢, 再升高, 挡板的速度需要再修改
+            txClawBoardMsg(0, CLAW_SPEED, 0, BOARD_SPEED);
+            // TODO: 根据爪子升高的位置来修改 if 语句
+            if (rxMoveClawBoardMsg.positionClaw > CLAW_HEIGHT)
+            {
+                // TODO: 添加校准函数的位置
+                workState = 4;
+                detection_mode = 0;
+            }
+            break;
+        case 4:
+            // 4. 后退 2m, 绝对位置控制
+            detection_mode = 0; // 关闭检测程序
+            workStageCout = "阶段 4 : ";
+            workStateCout = "小车后退约 2m , 使小车左移能到达基地区";
+            // 发送小车前进指令
+            // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
+            // TODO: 修改 DISTANCE_BACKWARDS
+            txMoveMsg(0, X_SPEED, 0, Y_SPEED, 0, 0);
+            // 保持爪子不动
+            txClawBoardMsg(0, 0, 0, 0);
+            // TODO: 到达指定位置, 满足 if 条件, 注意修改 if 条件
+            if (1)
+            {
+                workState = 5;
+                detection_mode = 0;
+            }
+            break;
+        case 5:
+            // 5. 向左移动一段距离, 绝对位置控制
+            detection_mode = 0; // 关闭检测程序
+            workStageCout = "阶段 5 : ";
+            workStateCout = "小车向左移动一定距离 , 到达基地区边缘";
+            // 发送小车前进指令
+            // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
+            // TODO: 修改 DISTANCE_LEFTWARDS
+            txMoveMsg(0, X_SPEED, 0, Y_SPEED, 0, 0);
+            // 保持爪子不动
+            txClawBoardMsg(0, 0, 0, 0);
+            // TODO: 到达指定位置, 满足 if 条件, 注意修改 if 条件
+            if (1)
+            {
+                workState = 6;
+                detection_mode = 2;
+            }
+            break;
+        case 6:
+            // 6. 箭头检测定位基地区
+            detection_mode = 2; // 箭头检测
+            workStageCout = "阶段 6 : ";
+            workStateCout = "箭头引导小车放盒子";
+
+            // 发送小车前进指令
+            // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
+            txMoveMsg(tx, X_SPEED, tz, Y_SPEED, ry, Z_SPEED);
+            txClawBoardMsg(0, 0, 0, 0);
+            // TODO: 根据线程中的标志位切换来修改 if 语句, 对照之前的程序
+            if (tx < DISTANCE_RECTANGLE_TO_ARROW)
+            {
+                workState = 7;
+                detection_mode = 0;
+            }
+            break;
+        case 7:
+            // 7. 小车过障碍
+            detection_mode = 0; // 箭头检测
+            workStageCout = "阶段 7 : ";
+            workStateCout = "过障碍";
+            // TODO: 根据底层程序修改
+            txMoveClawBoardMsg.flags = flagsSet(txMoveClawBoardMsg.flags, CONTROL_PASS_OBSTACLE_BIT, 1);
+            if (flagsRead(rxMoveClawBoardMsg.flags, READ_PASS_OBSTACLE_BIT))
+            {
+                workState = 8;
+                detection_mode = 0;
+            }
+            break;
+        case 8:
+            // 8. 堆叠盒子
+            workStageCout = "阶段 8 : ";
+            workStateCout = "堆叠盒子";
+            // TODO: 封装成一个函数
+            if (pileBoxes())
+            {
+                workState = 9;
+                detection_mode = 0;
+            }
+
+            break;
+        case 9:
+            // 9. 小车过障碍
+            detection_mode = 0; // 箭头检测
+            workStageCout = "阶段 9 : ";
+            workStateCout = "过障碍";
+            // TODO: 根据底层程序修改
+            txMoveClawBoardMsg.flags = flagsSet(txMoveClawBoardMsg.flags, CONTROL_PASS_OBSTACLE_BIT, 1);
+            if (flagsRead(rxMoveClawBoardMsg.flags, READ_PASS_OBSTACLE_BIT))
+            {
+                // TODO: 添加校准函数的位置
+                workState = 10;
+                detection_mode = 0;
+            }
+            break;
+        case 10:
+            // 10. 小车向右移动一段距离
+            detection_mode = 0; // 关闭检测程序
+            workStageCout = "阶段 10 : ";
+            workStateCout = "小车向右移动一定距离 , 准备进行下一次抓取";
+            // 发送小车前进指令
+            // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
+            // TODO: 修改 DISTANCE_LEFTWARDS
+            txMoveMsg(0, X_SPEED, 0, Y_SPEED, 0, 0);
+            // 保持爪子不动
+            txClawBoardMsg(0, 0, 0, 0);
+            // TODO: 到达指定位置, 满足 if 条件, 注意修改 if 条件
+            if (1)
+            {
+                workState = 1;
+                detection_mode = 2;
+                boxNum++;
+            }
             break;
         default:
             break;
         }
+        if (boxNum > MAX_GRASP_NUM)
+        {
+            break;
+        }
     }
+    missionEndTimeUs = currentTimeUs();
+    cout << "任务用时: " << (missionEndTimeUs - missionStartTimeUs) * 1e-6 << endl;
+    capture.closeStream(); // 关闭摄像头
+    disconnect_serial();   // 关闭串口
+    cout << "任务完成, 关闭程序!!!" << endl;
     return 0;
 }
+/* 急需确认项
+TODO: TODO: TODO:
+
+1. 小车坐标系的定义
+2. 前进距离的单位 速度的单位 旋转角度的单位
+3. 通信协议
+4. 速度为 0 时, 保持当前状态不变
+5. 绝对位置控制, 如何判断到达了指定位置? 以前使用 当前点和目标点的error作为条件
+6. 绝对位置和相对位置如何切换
+7. 小车过障碍在底层完成, 上层发送指令, 下层完成之后, 返回一个指令
+*/
+
+/* 逻辑流程
+
+1. 矩形引导小车前进，直到realsense检测到的距离小于
+2. 箭头引导小车前进，直到盒子完全进入小车(如何判断)
+3. 抓取盒子
+4. 后退 2m, 绝对位置控制
+5. 向左移动一段距离, 绝对位置控制
+6. 箭头检测定位基地区
+7. 小车过障碍
+8. 堆叠盒子
+9. 小车过障碍
+10. 小车向右移动一段距离
+
+*/
+
+/* 通信协议
+
+1. 小车 x y 方向的移动距离和速度
+2. 切换绝对位置和相对位置的标志位
+3. 滑台的位置和速度
+4. 过障碍的标志位
+5. 推板的位置和速度
+
+*/
+
+/* 视觉引导程序
+
+1. 矩形检测 旋转量 前后 左右偏移量
+2. 箭头检测 左右偏移量 质心位置 质心距离 realsense 的距离
+
+*/
+
+/* 里程计校准
+
+1. 抓取盒子时，进行校准，记录盒子个数
+2. 放完盒子之后，进行校准
+
+*/
