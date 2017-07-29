@@ -3,6 +3,7 @@
         "array": "cpp",
         "iostream": "cpp",
         "*.tcc": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "ostream": "cpp"
     }
 }

@@ -176,10 +176,10 @@ bool setcamera()
 void PullMsg()
 {
     int rxLength = sizeof(rxMoveClawBoardMsg);
-    uint8_t rxBuffMsg[rxLength];    
+    uint8_t rxBuffMsg[rxLength];
     // 将结构体转换成字节数据
     int readLength = read_serial(rxBuffMsg, rxLength, TIMEOUT);
-    if(readLength != 0)
+    if (readLength != 0)
     {
         memcpy(&rxMoveClawBoardMsg, rxBuffMsg, rxLength);
     }
@@ -192,7 +192,7 @@ void *KylinBotMsgPullerThreadFunc(void *param)
         PullMsg();
         usleep(1000);
     }
-    return NULL;   
+    return NULL;
 }
 /*************************************************************************
 *  函数名称：KylinBotMsgPusherThreadFunc
@@ -205,7 +205,7 @@ void *KylinBotMsgPullerThreadFunc(void *param)
 void PushMsg()
 {
     int txLength = sizeof(txMoveClawBoardMsg);
-    uint8_t txBuffMsg[txLength];    
+    uint8_t txBuffMsg[txLength];
     // 将结构体转换成字节数据
     memcpy(txBuffMsg, &txMoveClawBoardMsg, txLength);
     write_serial(txBuffMsg, txLength, TIMEOUT);
@@ -217,7 +217,7 @@ void *KylinBotMsgPusherThreadFunc(void *param)
     {
         PushMsg();
         usleep(4000);
-    }   
+    }
 }
 /*************************************************************************
 *  函数名称：KylinBotMarkDetecThreadFunc
@@ -229,7 +229,7 @@ void *KylinBotMsgPusherThreadFunc(void *param)
 *************************************************************************/
 void *KylinBotMarkDetecThreadFunc(void *param)
 {
-    
+
     Mat frame;
     vector<vector<Point>> squares;
     int lostFlag = false;
@@ -250,10 +250,12 @@ void *KylinBotMarkDetecThreadFunc(void *param)
         // 所有流程的输出
         cout << "1. State: " << workStageCout << workStateCout << endl;
         cout << "2. Detection Mode: " << (int)detection_mode << endl;
-        cout << "3. Detection Data: " << "tx: " << tx << " ty: " << ty << " tz: " << tz << endl;
-        cout << "4. Detection Data: " << "rx: " << rx << " ry: " << ry << " rz: " << rz << endl;        
+        cout << "3. Detection Data: "
+             << "tx: " << tx << " ty: " << ty << " tz: " << tz << endl;
+        cout << "4. Detection Data: "
+             << "rx: " << rx << " ry: " << ry << " rz: " << rz << endl;
         cout << "------------------------------------------------------------------------------" << endl;
-        
+
         switch (detection_mode)
         {
         case 0: //do nothing
@@ -289,7 +291,7 @@ void *KylinBotMarkDetecThreadFunc(void *param)
             // 抓盒子阶段
             // TODO: 注意修改距离
             if ((abs(tz) < 700 && (lostFlag == false) && CountVframe > 15))
-            { 
+            {
                 //Usue ultra sonic distance for controlling. Detection_mode will be changed in main.
                 finishDetectBoxFlag_GrabBox = true;
                 CountVframe = 0;
@@ -471,15 +473,15 @@ int flagsRead(uint16_t flags, int readBit)
 *************************************************************************/
 void testVisionProcessFun(int mode)
 {
-    while(true)
+    while (true)
     {
-        if(mode == 1)
+        if (mode == 1)
         {
             detection_mode = 1;
         }
-        else if(mode == 2)
+        else if (mode == 2)
         {
-            detection_mode = 2;            
+            detection_mode = 2;
         }
         else
         {
@@ -487,15 +489,60 @@ void testVisionProcessFun(int mode)
         }
     }
 }
+/*************************************************************************
+*  函数名称：testUARTFun
+*  功能说明：测试数据收发的函数
+*  参数说明：输入写入的数据
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+int testUARTFun()
+{
+    const char *device = "/dev/ttyUSB1";
+    if (connect_serial(device, 9600) == -1)
+    {
+        printf("serial open error!\n");
+        return -1;
+    }
+    while (true)
+    {
+        //unsigned char txBuff[2] = {'A','B'};
+        //cout << write_serial(txBuff, sizeof(txBuff), TIMEOUT) << endl;
 
+        // unsigned char rxBuff;
+        // read_serial(&rxBuff, sizeof(rxBuff), TIMEOUT);
+        // cout << "rxBuff: "<<rxBuff<<endl;
+        typedef struct dataStruct
+        {
+            uint16_t x;
+            uint16_t y;
+        } dataStruct;
+        dataStruct data;
+
+        int rxLength = sizeof(data);
+        uint8_t rxBuffMsg[rxLength];
+        // 将结构体转换成字节数据
+        int readLength = read_serial(rxBuffMsg, rxLength, TIMEOUT);
+        if (readLength != 0)
+        {
+            memcpy(&data, rxBuffMsg, rxLength);
+            cout << data.x << " " << data.y << endl;
+        }
+
+        sleep(1);
+    }
+}
 
 int main()
 {
-    
     // 计时函数
     missionStartTimeUs = currentTimeUs();
-    
+
     signal(SIGINT, sigfunc); // 设置信号, 对 ctrl+C 进行处理, 终止程序
+
+    // 测试串口
+    return (testUARTFun());
 
     // 相机相关参数设定
     if (!setcamera())
@@ -504,9 +551,9 @@ int main()
         return -1;
     }
 
-    // UART发送和接收的数据的大小
-    cout << sizeof(txMoveClawBoardMsg)<<endl;
-    cout << sizeof(rxMoveClawBoardMsg)<<endl;
+
+    cout << sizeof(txMoveClawBoardMsg) << endl;
+    cout << sizeof(rxMoveClawBoardMsg) << endl;
 
     // 系统初始化
     init();
@@ -521,7 +568,6 @@ int main()
     }
     */
 
-    
     // 创建线程
     MyThread kylibotMsgPullerTread;     //数据读取
     MyThread kylibotMsgPusherTread;     //数据发送
@@ -531,7 +577,6 @@ int main()
     kylibotMsgPusherTread.create(KylinBotMsgPusherThreadFunc, NULL);
     kylibotMarkDetectionTread.create(KylinBotMarkDetecThreadFunc, NULL);
 
-    
     // 测试视觉处理过程专用, 1->矩形检测 2->箭头检测, 其他->跳过
     testVisionProcessFun(1);
 
@@ -563,7 +608,7 @@ int main()
         case 2:
             // 2. 箭头引导小车前进，直到盒子完全进入小车(如何判断)
             detection_mode = 2; // 箭头检测
-            coutLogicFlag = 2;            
+            coutLogicFlag = 2;
             workStageCout = "阶段 2 : ";
             workStateCout = "箭头引导小车抓盒子";
 
@@ -601,7 +646,7 @@ int main()
         case 4:
             // 4. 后退 2m, 绝对位置控制
             detection_mode = 0; // 关闭检测程序
-            coutLogicFlag = 4;            
+            coutLogicFlag = 4;
             workStageCout = "阶段 4 : ";
             workStateCout = "小车后退约 2m , 使小车左移能到达基地区";
             // 发送小车前进指令
@@ -639,7 +684,7 @@ int main()
         case 6:
             // 6. 箭头检测定位基地区
             detection_mode = 2; // 箭头检测
-            coutLogicFlag = 6;            
+            coutLogicFlag = 6;
             workStageCout = "阶段 6 : ";
             workStateCout = "箭头引导小车放盒子";
 
@@ -670,7 +715,7 @@ int main()
             break;
         case 8:
             // 8. 堆叠盒子
-            coutLogicFlag = 8;            
+            coutLogicFlag = 8;
             workStageCout = "阶段 8 : ";
             workStateCout = "堆叠盒子";
             // TODO: 封装成一个函数
@@ -684,7 +729,7 @@ int main()
         case 9:
             // 9. 小车过障碍
             detection_mode = 0; // 箭头检测
-            coutLogicFlag = 9;            
+            coutLogicFlag = 9;
             workStageCout = "阶段 9 : ";
             workStateCout = "过障碍";
             // TODO: 根据底层程序修改
@@ -699,7 +744,7 @@ int main()
         case 10:
             // 10. 小车向右移动一段距离
             detection_mode = 0; // 关闭检测程序
-            coutLogicFlag = 10;            
+            coutLogicFlag = 10;
             workStageCout = "阶段 10 : ";
             workStateCout = "小车向右移动一定距离 , 准备进行下一次抓取";
             // 发送小车前进指令
@@ -760,7 +805,6 @@ bool pileBoxes()
     bool result = false;
     return result;
 }
-
 
 /* 急需确认项
 TODO: TODO: TODO:
