@@ -175,53 +175,24 @@ bool setcamera()
 *************************************************************************/
 void PullMsg()
 {
-    /*
-    // Get fifo free space
-    int len = FIFO_GetFree(&rx_fifo);
-    // If fifo free space insufficient, pop one element out
-    if (!len)
+    int rxLength = sizeof(rxMoveClawBoardMsg);
+    uint8_t rxBuffMsg[rxLength];    
+    // 将结构体转换成字节数据
+    int readLength = read_serial(rxBuffMsg, rxLength, TIMEOUT);
+    if(readLength != 0)
     {
-        uint8_t b;
-        len = FIFO_Pop(&rx_fifo, &b, 1);
+        memcpy(&rxMoveClawBoardMsg, rxBuffMsg, rxLength);
     }
-    // Read input stream according to the fifo free space left
-    len = read_serial(rx_buf[1], len, TIMEOUT);
-    // Push stream into fifo
-    FIFO_Push(&rx_fifo, rx_buf[1], len);
-    // Check if any message received
-    if (Msg_Pop(&rx_fifo, rx_buf[1], &msg_head_kylin, &kylinMsg))
-    {
-        // Dnl_ProcKylinMsg(&kylinMsg);
-    }
-    if (Msg_Pop(&rx_fifo, rx_buf[1], &msg_head_sr04s, &sr04sMsg))
-    {
-        Maf_Proc(&sr04maf[SR04_IDX_F], sr04sMsg.fixed);
-        Maf_Proc(&sr04maf[SR04_IDX_M], sr04sMsg.moble);
-        Maf_Proc(&sr04maf[SR04_IDX_L], sr04sMsg.left);
-        Maf_Proc(&sr04maf[SR04_IDX_R], sr04sMsg.right);
-        //Dnl_ProcSr04sMsg(&sr04sMsg);
-    }
-    if (Msg_Pop(&rx_fifo, rx_buf[1], &msg_head_zgyro, &zgyroMsg))
-    {
-        //Dnl_ProcZGyroMsg(&zgyroMsg);
-    }
-    if (Msg_Pop(&rx_fifo, rx_buf[1], &msg_head_pos_calib, &posCalibMsg))
-    {
-        //Dnl_ProcPosCalibMsg(&posCalibMsg);
-    }
-    */
 }
 
 void *KylinBotMsgPullerThreadFunc(void *param)
 {
-    /*
     while (exit_flag == 0)
     {
         PullMsg();
         usleep(1000);
     }
-    return NULL;
-    */
+    return NULL;   
 }
 /*************************************************************************
 *  函数名称：KylinBotMsgPusherThreadFunc
@@ -233,22 +204,20 @@ void *KylinBotMsgPullerThreadFunc(void *param)
 *************************************************************************/
 void PushMsg()
 {
-    /*
-    uint32_t len = Msg_Push(&tx_fifo, tx_buf[1], &msg_head_kylin, &txKylinMsg);
-    FIFO_Pop(&tx_fifo, tx_buf[1], len);
-    write_serial(tx_buf[1], len, TIMEOUT);
-    */
+    int txLength = sizeof(txMoveClawBoardMsg);
+    uint8_t txBuffMsg[txLength];    
+    // 将结构体转换成字节数据
+    memcpy(txBuffMsg, &txMoveClawBoardMsg, txLength);
+    write_serial(txBuffMsg, txLength, TIMEOUT);
 }
 
 void *KylinBotMsgPusherThreadFunc(void *param)
 {
-    /*
     while (exit_flag == 0)
     {
         PushMsg();
         usleep(4000);
-    }
-    */
+    }   
 }
 /*************************************************************************
 *  函数名称：KylinBotMarkDetecThreadFunc
@@ -260,55 +229,36 @@ void *KylinBotMsgPusherThreadFunc(void *param)
 *************************************************************************/
 void *KylinBotMarkDetecThreadFunc(void *param)
 {
-    /*
+    
     Mat frame;
     vector<vector<Point>> squares;
     int lostFlag = false;
-    //KylinBotMsgPullerThreadFunc(NULL);
-    //printf("hjhklhjllllllhkl\n");
-    printf("exit_flag=%d\n", exit_flag);
     int lostCount = 0;
     int CountVframe = 0;
     int fflage = -1;
-    while (exit_flag == 0) //&&(capture.read(frame)))
+    while (exit_flag == 0)
     {
         squares.clear();
         double t = (double)getTickCount();
-
         capture >> frame;
         if (frame.empty())
             continue;
 
         int dif_x = 0, dif_y = 0;
         Mat src = frame.clone();
-        //cout << "detection_mode=" << (int)detection_mode << endl;
 
-        cout << "1. Ultrasonic: "
-             << " Left: " << sr04maf[SR04_IDX_L].avg << "  Right: " << sr04maf[SR04_IDX_R].avg << "  Fixed: " << sr04maf[SR04_IDX_F].avg << "  Mobile: " << sr04maf[SR04_IDX_M].avg << endl;
-        cout << "2. WorkState: "
-             << "coutLogicFlag: " << coutLogicFlag << " coutLogicFlag_PutBox: " << coutLogicFlag_PutBox << " coutLogicFlag_PutBox2toBox1: " << coutLogicFlag_PutBox2toBox1 << endl;
-        cout << "3. State: " << workStageCout << workStateCout << endl;
-        cout << "abs(tz): " << abs(tz) << " lostFlag: " << lostFlag << endl;
-        cout << "deltaAngle: " << deltaAngle << " zgyroMsg.angle: " << zgyroMsg.angle << " lastZGyroMsg.angle: " << lastZGyroMsg.angle << endl;
-        cout << "txKylinMsg.cbus.cp.x: " << txKylinMsg.cbus.cp.x << " txKylinMsg.cbus.cp.y: " << txKylinMsg.cbus.cp.y << " txKylinMsg.cbus.cp.z: " << txKylinMsg.cbus.cp.z << endl;
-        cout << "KylinMsg.cbus.cp.x: " << kylinMsg.cbus.cp.x << " kylinMsg.cbus.cp.y: " << kylinMsg.cbus.cp.y << " kylinMsg.cbus.cp.z: " << kylinMsg.cbus.cp.z << endl;
-        cout << "txKylinMsg.cbus.gp.e: " << txKylinMsg.cbus.gp.e << " txKylinMsg.cbus.gp.c: " << txKylinMsg.cbus.gp.c << endl;
-        cout << "kylinMsg.cbus.gp.e: " << kylinMsg.cbus.gp.e << " kylinMsg.cbus.gp.c: " << kylinMsg.cbus.gp.c << endl;
-        cout << "txKylinMsg.cbus.gv.e: " << txKylinMsg.cbus.gv.e << " txKylinMsg.cbus.gv.c: " << txKylinMsg.cbus.gv.c << endl;
-        cout << "kylinMsg.cbus.gv.e: " << kylinMsg.cbus.gv.e << " kylinMsg.cbus.gv.c: " << kylinMsg.cbus.gv.c << endl;
-
+        // 所有流程的输出
+        cout << "1. State: " << workStageCout << workStateCout << endl;
+        cout << "2. Detection Mode: " << (int)detection_mode << endl;
+        cout << "3. Detection Data: " << "tx: " << tx << " ty: " << ty << " tz: " << tz << endl;
+        cout << "4. Detection Data: " << "rx: " << rx << " ry: " << ry << " rz: " << rz << endl;        
         cout << "------------------------------------------------------------------------------" << endl;
         
         switch (detection_mode)
-
         {
         case 0: //do nothing
-            //TODO:
-            //imshow("IM",frame);
-            //cout << "detection_mode=" << (int)detection_mode << endl;
             break;
         case 1: //detect squares
-            //cout << "detection_mode=" << (int)detection_mode << endl;
             findSquares(src, frame, squares);
             LocationMarkes(squares);
             drawSquares(frame, squares);
@@ -317,14 +267,6 @@ void *KylinBotMarkDetecThreadFunc(void *param)
                 lostCount = 0;
                 lostFlag = false;
                 CountVframe++;
-                // txKylinMsg.cbus.cp.x = tx;
-                // txKylinMsg.cbus.cv.x = 500;
-                // txKylinMsg.cbus.cp.y = tz;
-                // txKylinMsg.cbus.cv.y = 800;
-                // txKylinMsg.cbus.cp.z = ry * 3141.592654f / 180;
-                // txKylinMsg.cbus.cv.z = 500;
-                // txKylinMsg.cbus.gp.e = ty;
-                // txKylinMsg.cbus.gv.e = 0;
             }
             if (squares.size() == 0)
             {
@@ -340,21 +282,26 @@ void *KylinBotMarkDetecThreadFunc(void *param)
                     rx = 0;
                     ry = 0;
                     rz = 0;
-                    rstRmp();
+                    // rstRmp();
                 }
             }
-            //TODO: 本 if 语句使用 fixed 还是 mobile 超声波?
-            //TODO: 矩形检测 flag 置 true 过程中, 超声波阈值宏定义
-            if ((sr04maf[SR04_IDX_M].avg < 410 && sr04maf[SR04_IDX_F].avg < 500) || (abs(tz) < 700 && (lostFlag == false) && CountVframe > 15))
-            { //Usue ultra sonic distance for controlling. Detection_mode will be changed in main.
-                finishDetectBoxFlag = true;
+            // TODO: 使用 realsense 测得的距离还是使用 PNP 解算出来的距离
+            // 抓盒子阶段
+            // TODO: 注意修改距离
+            if ((abs(tz) < 700 && (lostFlag == false) && CountVframe > 15))
+            { 
+                //Usue ultra sonic distance for controlling. Detection_mode will be changed in main.
+                finishDetectBoxFlag_GrabBox = true;
                 CountVframe = 0;
             }
             else
             {
-                finishDetectBoxFlag = false;
+                finishDetectBoxFlag_GrabBox = false;
             }
-            if (coutLogicFlag == 9 && ((sr04maf[SR04_IDX_M].avg < 460 && sr04maf[SR04_IDX_F].avg < 550) || (abs(tz) < 500 && (lostFlag == false) && CountVframe > 10)))
+
+            // 放盒子阶段
+            // TODO: 注意修改coutLOgicFlag和距离
+            if (coutLogicFlag == 9 && (abs(tz) < 500 && (lostFlag == false) && CountVframe > 10))
             {
                 finishDetectBoxFlag_PutBox = true;
                 CountVframe = 0;
@@ -363,53 +310,55 @@ void *KylinBotMarkDetecThreadFunc(void *param)
             {
                 finishDetectBoxFlag_PutBox = false;
             }
-            printf("tz=%lf\n", tz);
             break;
         case 2: //detect green area
-            //cout << "detection_mode=" << (int)detection_mode << endl;
-
             fflage = Color_detect(src, dif_x, dif_y);
             if (fflage == 0)
+            {
                 CountVframe++;
+            }
             tx = 3 * (dif_x - DIF_CEN);
-            // txKylinMsg.cbus.cp.x = 10 * dif_x;
-            cout << "tx=" << tx << endl;
 
             if (abs(tx) < 40 && (CountVframe > 100 || fflage)) //number of pixels
             {
                 CountVframe = 0;
-                finishDetectCentroidFlag = true;
+                finishDetectArrowFlag_GrabBox = true;
 
-                
                 if (coutLogicFlag == INT_MAX)
                 {
-                    finishDetectCentroidFlag_PutBox2toBox1 = true;
+                    finishDetectArrowFlag_PutBox = true;
                 }
             }
             else
             {
-                finishDetectCentroidFlag = false;
-                finishDetectCentroidFlag_PutBox2toBox1 = false;
+                finishDetectArrowFlag_GrabBox = false;
+                finishDetectArrowFlag_PutBox = false;
             }
-            break;
-        case 3: //follow line
-            //cout << "detection_mode=" << (int)detection_mode << endl;
-            break;
-        case 4: //follow line
-            //cout << "detection_mode=" << (int)detection_mode << endl;
-            break;
-        case 5: //follow line
-
             break;
         default:
             break;
         }
         int c = waitKey(1);
         if ((char)c == 'q')
+        {
             break;
+        }
     }
-    */
 }
+/*************************************************************************
+*  函数名称：sigfunc
+*  功能说明：处理终止程序运行的函数
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-27
+*  TODO: 添加初始化
+*************************************************************************/
+void sigfunc(int signo)
+{
+    printf("oops! stop!!!\n");  
+    exit(signo);
+}
+
 /*************************************************************************
 *  函数名称：init
 *  功能说明：程序初始化
@@ -474,16 +423,16 @@ void txClawBoardMsg(int16_t positionClaw, int16_t speedClaw, int16_t positionBoa
 *  修改时间：2017-07-28
 *  TODO: 添加函数体
 *************************************************************************/
-uint32_t flagsSet(uint32_t flags, int controlBit, int bit)
+uint16_t flagsSet(uint16_t flags, int controlBit, int bit)
 {
     // 置 1
     if (bit == 1)
     {
-        flags |= (1u << controlBit);
+        flags |= (CONST_ONE << controlBit);
     }
     else if (bit == 0)
     {
-        flags &= ~(1u << controlBit);
+        flags &= ~(CONST_ONE << controlBit);
     }
     else
     {
@@ -500,9 +449,9 @@ uint32_t flagsSet(uint32_t flags, int controlBit, int bit)
 *  修改时间：2017-07-28
 *  TODO: 添加函数体
 *************************************************************************/
-int flagsRead(uint32_t flags, int readBit)
+int flagsRead(uint16_t flags, int readBit)
 {
-    flags &= (1u << readBit);
+    flags &= (CONST_ONE << readBit);
     if (flags == 0)
     {
         return 0;
@@ -513,37 +462,41 @@ int flagsRead(uint32_t flags, int readBit)
     }
 }
 /*************************************************************************
-*  函数名称：graspBoxes
-*  功能说明：抓取盒子
-*  参数说明：无
+*  函数名称：testVisionProcessFun
+*  功能说明：测试视觉处理过程的函数
+*  参数说明：输入需要测试的过程编号 1->矩形检测 2->箭头检测
 *  函数返回：无
 *  修改时间：2017-07-28
 *  TODO: 添加函数体
 *************************************************************************/
-bool graspBoxes()
+void testVisionProcessFun(int mode)
 {
-    bool result = false;
-    return result;
+    while(true)
+    {
+        if(mode == 1)
+        {
+            detection_mode = 1;
+        }
+        else if(mode == 2)
+        {
+            detection_mode = 2;            
+        }
+        else
+        {
+            break;
+        }
+    }
 }
 
-/*************************************************************************
-*  函数名称：pileBoxes
-*  功能说明：堆叠盒子
-*  参数说明：无
-*  函数返回：无
-*  修改时间：2017-07-28
-*  TODO: 添加函数体
-*************************************************************************/
-bool pileBoxes()
-{
-    bool result = false;
-    return result;
-}
 
 int main()
 {
+    
     // 计时函数
     missionStartTimeUs = currentTimeUs();
+    
+    signal(SIGINT, sigfunc); // 设置信号, 对 ctrl+C 进行处理, 终止程序
+
     // 相机相关参数设定
     if (!setcamera())
     {
@@ -551,17 +504,23 @@ int main()
         return -1;
     }
 
+    cout << sizeof(txMoveClawBoardMsg)<<endl;
+    cout << sizeof(rxMoveClawBoardMsg)<<endl;
+
     // 系统初始化
     init();
 
     // 打开串口
+    /*
     const char *device = "/dev/ttyTHS2";
     if (connect_serial(device, 115200) == -1)
     {
         printf("serial open error!\n");
         return -1;
     }
+    */
 
+    
     // 创建线程
     MyThread kylibotMsgPullerTread;     //数据读取
     MyThread kylibotMsgPusherTread;     //数据发送
@@ -571,8 +530,12 @@ int main()
     kylibotMsgPusherTread.create(KylinBotMsgPusherThreadFunc, NULL);
     kylibotMarkDetectionTread.create(KylinBotMarkDetecThreadFunc, NULL);
 
+    
+    // 测试视觉处理过程专用, 1->矩形检测 2->箭头检测, 其他->跳过
+    testVisionProcessFun(1);
+
     //主逻辑循环
-    while (1)
+    while (!exit_flag)
     {
         // workState: 0->
         switch (workState)
@@ -580,6 +543,7 @@ int main()
         case 1:
             // 1. 矩形引导小车前进，直到 realsense 检测到的距离小于多少时, 切换到 case2
             detection_mode = 1; // 矩形检测
+            coutLogicFlag = 1;
             workStageCout = "阶段 1 : ";
             workStateCout = "矩形引导小车抓盒子";
 
@@ -598,6 +562,7 @@ int main()
         case 2:
             // 2. 箭头引导小车前进，直到盒子完全进入小车(如何判断)
             detection_mode = 2; // 箭头检测
+            coutLogicFlag = 2;            
             workStageCout = "阶段 2 : ";
             workStateCout = "箭头引导小车抓盒子";
 
@@ -616,6 +581,7 @@ int main()
         case 3:
             // 3. 抓取盒子
             detection_mode = 0; // 关闭检测程序
+            coutLogicFlag = 3;
             workStageCout = "阶段 3 : ";
             workStateCout = "抓取盒子";
             // TODO: 抓取函数
@@ -634,6 +600,7 @@ int main()
         case 4:
             // 4. 后退 2m, 绝对位置控制
             detection_mode = 0; // 关闭检测程序
+            coutLogicFlag = 4;            
             workStageCout = "阶段 4 : ";
             workStateCout = "小车后退约 2m , 使小车左移能到达基地区";
             // 发送小车前进指令
@@ -652,6 +619,7 @@ int main()
         case 5:
             // 5. 向左移动一段距离, 绝对位置控制
             detection_mode = 0; // 关闭检测程序
+            coutLogicFlag = 5;
             workStageCout = "阶段 5 : ";
             workStateCout = "小车向左移动一定距离 , 到达基地区边缘";
             // 发送小车前进指令
@@ -670,6 +638,7 @@ int main()
         case 6:
             // 6. 箭头检测定位基地区
             detection_mode = 2; // 箭头检测
+            coutLogicFlag = 6;            
             workStageCout = "阶段 6 : ";
             workStateCout = "箭头引导小车放盒子";
 
@@ -687,6 +656,7 @@ int main()
         case 7:
             // 7. 小车过障碍
             detection_mode = 0; // 箭头检测
+            coutLogicFlag = 7;
             workStageCout = "阶段 7 : ";
             workStateCout = "过障碍";
             // TODO: 根据底层程序修改
@@ -699,6 +669,7 @@ int main()
             break;
         case 8:
             // 8. 堆叠盒子
+            coutLogicFlag = 8;            
             workStageCout = "阶段 8 : ";
             workStateCout = "堆叠盒子";
             // TODO: 封装成一个函数
@@ -712,6 +683,7 @@ int main()
         case 9:
             // 9. 小车过障碍
             detection_mode = 0; // 箭头检测
+            coutLogicFlag = 9;            
             workStageCout = "阶段 9 : ";
             workStateCout = "过障碍";
             // TODO: 根据底层程序修改
@@ -726,6 +698,7 @@ int main()
         case 10:
             // 10. 小车向右移动一段距离
             detection_mode = 0; // 关闭检测程序
+            coutLogicFlag = 10;            
             workStageCout = "阶段 10 : ";
             workStateCout = "小车向右移动一定距离 , 准备进行下一次抓取";
             // 发送小车前进指令
@@ -747,6 +720,7 @@ int main()
         }
         if (boxNum > MAX_GRASP_NUM)
         {
+            exit_flag = 1; //完成任务
             break;
         }
     }
@@ -757,6 +731,36 @@ int main()
     cout << "任务完成, 关闭程序!!!" << endl;
     return 0;
 }
+
+/*************************************************************************
+*  函数名称：graspBoxes
+*  功能说明：抓取盒子逻辑过程
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+bool graspBoxes()
+{
+    bool result = false;
+    return result;
+}
+
+/*************************************************************************
+*  函数名称：pileBoxes
+*  功能说明：堆叠盒子逻辑过程
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2017-07-28
+*  TODO: 添加函数体
+*************************************************************************/
+bool pileBoxes()
+{
+    bool result = false;
+    return result;
+}
+
+
 /* 急需确认项
 TODO: TODO: TODO:
 

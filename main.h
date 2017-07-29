@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/wait.h>  
+#include <sys/types.h>  
 
 // extra
 #include "serial.h"
@@ -76,8 +78,13 @@
 // 最大抓取盒子数量
 #define MAX_GRASP_NUM 0
 
+#define TIMEOUT 30  // UART 通信 TIMEOUT
 
+#define CONST_ONE 0X0001
 
+// 6. 视觉相关
+// 摄像头与小车轴心的固定偏移
+#define DIFFCONST 101
 /*************************************************************************
 *  
 *  
@@ -90,14 +97,23 @@ double missionStartTimeUs = 0;
 double missionEndTimeUs = 0;
 
 int workState = 1;      // 工作状态
-string workStageCout;   // 工作阶段打印(cout)
-string workStateCout;   // 工作状态打印(cout)
+string workStageCout = "状态 0 : ";   // 工作阶段打印(cout)
+string workStateCout = "未执行主逻辑";   // 工作状态打印(cout)
 int boxNum = 1;         // 盒子数量
+int exit_flag = 0;
+volatile int coutLogicFlag = 1;
 
 // 视觉检测部分的变量
 volatile int8_t detection_mode = 0;
 extern double ry, rz, rx;
 extern double tx, ty, tz;
+
+// 2. 标志位区
+bool finishDetectBoxFlag_GrabBox = false;       // 矩形引导完成检测盒子
+bool finishDetectBoxFlag_PutBox = false;         // 矩形引导完成放盒子
+bool finishDetectArrowFlag_GrabBox = false;     // 箭头检测完成抓盒子
+bool finishDetectArrowFlag_PutBox = false;      // 箭头检测完成放盒子
+
 
 /*************************************************************************
 *  
@@ -109,6 +125,12 @@ extern double tx, ty, tz;
 // UART 通信数据类型
 typedef struct
 {
+    // 注意长度
+    // 数据头
+    int16_t head;
+    // 各种状态标志位
+    uint16_t flags;               
+    
     // 小车的三个轴
     int16_t positionX;
     int16_t speedX;
@@ -125,12 +147,13 @@ typedef struct
     // TODO: 挡板只有推和未推两种状态? 可以精简
     int16_t positionBoard;      // 挡板的位置
     int16_t speedBoard;         // 挡板的速度
-
-    uint32_t flags;               // 各种状态标志位
 }txMoveClawBoardMsgStruct;
 
 typedef struct
 {
+    // 数据头
+    int16_t head;
+    uint16_t flags;               // 各种状态标志位
     // 小车的三个轴
     int16_t positionX;
     int16_t speedX;
@@ -147,12 +170,21 @@ typedef struct
     // TODO: 挡板只有推和未推两种状态? 可以精简
     int16_t positionBoard;      // 挡板的位置
     int16_t speedBoard;         // 挡板的速度
-
-    uint32_t flags;               // 各种状态标志位
 }rxMoveClawBoardMsgStruct;
 
 // UART 通信数据
 txMoveClawBoardMsgStruct txMoveClawBoardMsg;
 rxMoveClawBoardMsgStruct rxMoveClawBoardMsg;
+
+
+/*************************************************************************
+*  
+*  
+*  函数声明
+*  
+*  
+*************************************************************************/
+bool graspBoxes();
+bool pileBoxes();
 
 #endif
