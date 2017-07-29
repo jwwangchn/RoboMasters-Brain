@@ -355,7 +355,7 @@ void *KylinBotMarkDetecThreadFunc(void *param)
 *************************************************************************/
 void sigfunc(int signo)
 {
-    printf("oops! stop!!!\n");  
+    printf("检测到 Ctrl+C, 关闭主进程和线程!!!!!\n");  
     exit(signo);
 }
 
@@ -504,6 +504,7 @@ int main()
         return -1;
     }
 
+    // UART发送和接收的数据的大小
     cout << sizeof(txMoveClawBoardMsg)<<endl;
     cout << sizeof(rxMoveClawBoardMsg)<<endl;
 
