@@ -23,3 +23,4 @@ fi
 cmake ..
 make
 ./robomasters-brain
+
