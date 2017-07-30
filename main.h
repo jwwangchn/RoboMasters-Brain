@@ -86,9 +86,9 @@ using namespace rs;
 #define CONST_ONE 0X0001
 
 // 6. 光学相机和RealSense切换
-// #define _USE_REALSENSE
+#define _USE_REALSENSE
 // #define _REALSENSE_SHOW
-#define _USE_LIGHT_CAMERA
+// #define _USE_LIGHT_CAMERA
 
 // 6. 视觉相关
 // 摄像头与小车轴心的固定偏移
@@ -191,5 +191,6 @@ bool graspBoxes();
 bool pileBoxes();
 extern bool initialize_streaming();
 extern void setup_windows();
+extern float getDistance(rs::device *dev, int x, int y);
 
 #endif

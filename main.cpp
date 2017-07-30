@@ -297,8 +297,9 @@ void *KylinBotMarkDetecThreadFunc(void *param)
              << "tx: " << tx << " ty: " << ty << " tz: " << tz << endl;
         cout << "4. Detection Data: "
              << "rx: " << rx << " ry: " << ry << " rz: " << rz << endl;
+        cout << "5. Arrow Detect: "
+             << "senterX: " << senterX << " senterY: " << senterY << " 偏差: " << abs(320 - senterX) << " 深度: " << getDistance(_rs_camera, senterX, senterY) << endl;
         cout << "------------------------------------------------------------------------------" << endl;
-
         switch (detection_mode)
         {
         case 0: //do nothing
@@ -358,7 +359,8 @@ void *KylinBotMarkDetecThreadFunc(void *param)
             }
             break;
         case 2: //detect green area
-            fflage = Color_detect(src, dif_x, dif_y);
+            // fflage = Color_detect(src, dif_x, dif_y);    //旧程序
+            fflage = arrowDetect(src);
             if (fflage == 0)
             {
                 CountVframe++;
@@ -401,7 +403,8 @@ void *KylinBotMarkDetecThreadFunc(void *param)
 *************************************************************************/
 void sigfunc(int signo)
 {
-    printf("检测到 Ctrl+C, 关闭主进程和线程!!!!!\n");  
+    printf("检测到 Ctrl+C, 关闭主进程和线程!!!!!\n");
+    exit_flag = 1;
     exit(signo);
 }
 
@@ -609,8 +612,8 @@ int main()
     */
 
     // 测试串口
-    return (testUARTFun());
-    
+    // return (testUARTFun());
+
     // 相机相关参数设定
 #ifdef _USE_LIGHT_CAMERA
     if (!setcamera())
@@ -629,6 +632,11 @@ int main()
         rs::log_to_console(rs::log_severity::fatal);
         return EXIT_FAILURE;
     }
+    // if (!setRealsenseCamera())
+    // {
+    //     cout << "Setup camera failure. Won't do anything." << endl;
+    //     return -1;
+    // }
     // setup_windows();
 #endif
 
@@ -648,7 +656,7 @@ int main()
     kylibotMarkDetectionTread.create(KylinBotMarkDetecThreadFunc, NULL);
 
     // 测试视觉处理过程专用, 1->矩形检测 2->箭头检测, 其他->跳过
-    testVisionProcessFun(1);
+    testVisionProcessFun(2);
 
     //主逻辑循环
     while (!exit_flag)
@@ -844,6 +852,7 @@ int main()
     cout << "任务用时: " << (missionEndTimeUs - missionStartTimeUs) * 1e-6 << endl;
     capture.closeStream(); // 关闭摄像头
     disconnect_serial();   // 关闭串口
+    _rs_camera->stop();     // 关闭realsense
     cout << "任务完成, 关闭程序!!!" << endl;
     return 0;
 }

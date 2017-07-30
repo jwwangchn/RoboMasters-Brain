@@ -25,19 +25,28 @@ int grey_thresh = 100;
 int numframe = 0; //frame numbers
 int lost_numframe = 0;
 double omission = 0.0;
+
+int senterX, senterY; // 箭头检测质心位置
+
 #ifdef Camera_One
 //for 800*600
 //camera 1
 Mat cameraMatrix = (Mat_<double>(3, 3) << 942.6637, 0, 342.8562, 0, 943.0159, 320.2033, 0, 0, 1);
 
 Mat distCoeffs = (Mat_<double>(1, 4) << -0.2248, 11.8088, -0.0071, 0.0045);
+#endif
 
-#else
-
+#ifdef Camera_Two
 //camera 2
 Mat cameraMatrix = (Mat_<double>(3, 3) << 1079.2096, 0, 342.5224, 0, 1075.3261, 353.0309, 0, 0, 1);
 
 Mat distCoeffs = (Mat_<double>(1, 4) << -0.4513, 0.1492, -0.0030, 0.0043);
+#endif
+
+#ifdef REALSENSE_CAMERA
+Mat cameraMatrix = (Mat_<double>(3, 3) << 614.4084, 0, 319.9054, 0, 614.2606, 247.1147, 0, 0, 1);
+
+Mat distCoeffs = (Mat_<double>(1, 4) << 0.1187, -0.1457, -0.000018, -0.0043);
 #endif
 
 const int ARROW_AREA_MIN = 2000; //variable
@@ -259,9 +268,8 @@ void drawSquares(Mat &image, const vector<vector<Point>> &squares)
     {
         const Point *p = &squares[i][0];
         int n = (int)squares[i].size();
-#ifdef _SHOW_PHOTO
+#ifdef _RECTANGLE_SHOW
         polylines(image, &p, &n, 1, true, Scalar(0, 255, 0), 1, CV_AA);
-
 #endif
     }
     //cout<<"squares.size: "<<squares.size()<<endl;
@@ -282,7 +290,7 @@ void drawSquares(Mat &image, const vector<vector<Point>> &squares)
         numframe = 0;
         lost_numframe = 0;
     }
-#ifdef _SHOW_PHOTO
+#ifdef _RECTANGLE_SHOW
     char str_y[20];
     char str_z[20];
     char str_x[20];
@@ -320,8 +328,9 @@ void drawSquares(Mat &image, const vector<vector<Point>> &squares)
     putText(image, full_om, Point(30, 240), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 255, 0), 2);
 #endif
 
-#ifdef _SHOW_PHOTO
-    imshow("Square Detection Demo", image);
+#ifdef _RECTANGLE_SHOW
+    namedWindow("Visio Process");
+    imshow("Visio Process", image);
 #endif
 }
 
@@ -586,7 +595,8 @@ int Color_detect(Mat frame, int &diff_x, int &diff_y)
     Canny(gray, gray, 100, 150, 5);
 
 #ifdef _SHOW_PHOTO
-    imshow("Canny", gray);
+// namedWindow("Visio Process");
+// imshow("Canny", gray);
 #endif
 
     //dilate(gray, gray, Mat(), Point(-1,-1));
@@ -637,6 +647,100 @@ int Color_detect(Mat frame, int &diff_x, int &diff_y)
         else
         {
             diff_x = DIF_CEN;
+        }
+    }
+}
+
+bool arrowDetect(Mat frame)
+{
+    vector<Mat> channels1;
+    Mat Gimg = frame;
+    Mat BlueChannel1, GreenChannel1, RedChannel1;
+    split(Gimg, channels1);
+    BlueChannel1 = channels1.at(0);
+    GreenChannel1 = channels1.at(1);
+    RedChannel1 = channels1.at(2);
+    cvtColor(frame, frame, COLOR_BGR2GRAY);
+    medianBlur(frame, frame, 5);
+    
+    Canny(frame, frame, 50, 200, 3); //提取边缘
+    threshold(frame, frame, 150, 255, 0);
+
+    vector<vector<Point>> contours;
+    findContours(frame, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+
+    vector<std::vector<Point>>::const_iterator itc = contours.begin(); //剔除长度和面积不对的轮廓
+    while (itc != contours.end())
+    {
+        double S = contourArea(*itc, false);                //面积
+        if (itc->size() <= THRESHOLD_C || S <= THRESHOLD_S) //size表示轮廓周长
+        {
+            itc = contours.erase(itc);
+        }
+        else
+        {
+            ++itc;
+        }
+    }
+    //15 85 105
+    // cout << "contours数量: " << contours.size() << endl;
+    //drawContours(frame, contours, -1, Scalar(255), 2);
+
+    vector<Point> senter;
+    itc = contours.begin(); //计算中心
+    while (itc != contours.end())
+    {
+        //计算所有的距
+        Moments mom = moments(Mat(*itc++));
+        //计算并画出质心
+        circle(frame, Point(mom.m10 / mom.m00, mom.m01 / mom.m00), 2, Scalar(255), 2);
+        senter.push_back(Point(mom.m10 / mom.m00, mom.m01 / mom.m00));
+    }
+
+    vector<Rect> boundRect(contours.size() + 1);     // 定义Rect类型的vector容器boundRect存放正外接矩形，初始化大小为contours.size()即轮廓个数
+    vector<RotatedRect> roRect(contours.size() + 1); // 定义Rect类型的vector容器roRect存放最小外接矩形，初始化大小为contours.size()即轮廓个数
+    vector<Point> Senter;                        //质心
+    for (int i = 0; i < contours.size(); i++)
+    {
+        boundRect[i] = boundingRect(Mat(contours[i]));
+        //2.4.1获得正外接矩形的左上角坐标及宽高
+        int width = boundRect[i].width;
+        int height = boundRect[i].height;
+        int X = boundRect[i].x;
+        int Y = boundRect[i].y;
+
+        int y = X + width / 2;
+        int x = Y + height / 2;
+        //2.4.2用画矩形方法绘制正外接矩形
+        double bilibili = (double)width / (double)height;
+
+        double Sred = (double)RedChannel1.at<uchar>(x - 1, y - 1) + (double)RedChannel1.at<uchar>(x - 1, y) + (double)RedChannel1.at<uchar>(x - 1, y + 1) + (double)RedChannel1.at<uchar>(x, y - 1) + (double)RedChannel1.at<uchar>(x, y) + (double)RedChannel1.at<uchar>(x, y + 1) + (double)RedChannel1.at<uchar>(x + 1, y - 1) + (double)RedChannel1.at<uchar>(x + 1, y) + (double)RedChannel1.at<uchar>(x + 1, y + 1);
+        double Sgreen = (double)GreenChannel1.at<uchar>(x - 1, y - 1) + (double)GreenChannel1.at<uchar>(x - 1, y) + (double)GreenChannel1.at<uchar>(x - 1, y + 1) + (double)GreenChannel1.at<uchar>(x, y - 1) + (double)GreenChannel1.at<uchar>(x, y) + (double)GreenChannel1.at<uchar>(x, y + 1) + (double)GreenChannel1.at<uchar>(x + 1, y - 1) + (double)GreenChannel1.at<uchar>(x + 1, y) + (double)GreenChannel1.at<uchar>(x + 1, y + 1);
+        double Sblue = (double)BlueChannel1.at<uchar>(x - 1, y - 1) + (double)BlueChannel1.at<uchar>(x - 1, y) + (double)BlueChannel1.at<uchar>(x - 1, y + 1) + (double)BlueChannel1.at<uchar>(x, y - 1) + (double)BlueChannel1.at<uchar>(x, y) + (double)BlueChannel1.at<uchar>(x, y + 1) + (double)BlueChannel1.at<uchar>(x + 1, y - 1) + (double)BlueChannel1.at<uchar>(x + 1, y) + (double)BlueChannel1.at<uchar>(x + 1, y + 1);
+        double Th1 = (Sblue - Sgreen) / 9;
+        double Th2 = (Sblue - Sred) / 9;
+
+        if (bilibili > THRESHOLD_LW_min && bilibili < THRESHOLD_LW_max && Th1 > THRESHOLD_B_G && Th2 > THRESHOLD_B_R)
+        {
+            rectangle(frame, Rect(X, Y, width, height), Scalar(255, 0, 0), 2, 8);
+            Point SENTER(y, x);
+            Senter.push_back(SENTER);
+            // cout << y << "  " << x << endl;
+        }
+        senterX = y;
+        senterY = x;
+#ifdef _ARROW_SHOW
+        namedWindow("Visio Process");
+        imshow("Visio Process", frame);
+        waitKey(1);
+#endif
+        if (Senter.size() == 0)
+        {
+            return false;
+        }
+        else
+        {
+            return true;
         }
     }
 }

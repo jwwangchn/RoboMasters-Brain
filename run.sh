@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# 打开UART的权限
+sudo chmod 666 /dev/ttyUSB0
+
 # 判断build文件夹是否存在，不存在则创建
 if [ ! -d "$build" ]; then
   mkdir build

@@ -96,17 +96,18 @@ bool display_next_frame()
 /////////////////////////////////////////////////////////////////////////////
 float getDistance(rs::device *dev, int x, int y)
 {
+    cout << "ok1" << endl;
     uint16_t *depthImage = (uint16_t *)dev->get_frame_data(rs::stream::depth);
+    cout << "ok2" << endl;
     float scale = dev->get_depth_scale();
+    cout << "ok3" << endl;
     rs::intrinsics depthIntrin = dev->get_stream_intrinsics(rs::stream::depth);
+    cout << "ok4" << endl;
+    cout << y << " "<< depthIntrin.width << " " << x << endl;
     uint16_t depthValue = depthImage[y * depthIntrin.width + x];
-    cv::Mat depthValueMat = cv::Mat(depthIntrin.height, depthIntrin.width, CV_16U, depthImage);
-    cv::Mat opened;
-    cv::Mat element(5, 5, CV_8U, cv::Scalar(1));
-    cv::morphologyEx(depthValueMat, opened, cv::MORPH_OPEN, element, cv::Point(-1, -1), 1);
-    imshow("opened", opened * 100);
-    cvWaitKey(1);
+    cout << "ok5" << endl;
     float depthInMeters = depthValue * scale;
+    cout << "ok6" << endl;
     return depthInMeters;
 }
 
