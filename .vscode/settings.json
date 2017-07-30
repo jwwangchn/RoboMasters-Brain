@@ -4,6 +4,9 @@
         "iostream": "cpp",
         "*.tcc": "cpp",
         "functional": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "algorithm": "cpp",
+        "initializer_list": "cpp",
+        "cstdlib": "cpp"
     }
 }

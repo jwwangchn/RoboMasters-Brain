@@ -175,6 +175,8 @@ bool setcamera()
 *************************************************************************/
 void PullMsg()
 {
+    rxMoveClawBoardMsg.head = 0XAEAE;
+    rxMoveClawBoardMsg.end = 0XEAEA;
     int rxLength = sizeof(rxMoveClawBoardMsg);
     uint8_t rxBuffMsg[rxLength];
     // 将结构体转换成字节数据
@@ -204,6 +206,8 @@ void *KylinBotMsgPullerThreadFunc(void *param)
 *************************************************************************/
 void PushMsg()
 {
+    txMoveClawBoardMsg.head = 0XAEAE;
+    txMoveClawBoardMsg.end = 0XEAEA;
     int txLength = sizeof(txMoveClawBoardMsg);
     uint8_t txBuffMsg[txLength];
     // 将结构体转换成字节数据
@@ -229,7 +233,6 @@ void *KylinBotMsgPusherThreadFunc(void *param)
 *************************************************************************/
 void *KylinBotMarkDetecThreadFunc(void *param)
 {
-
     Mat frame;
     vector<vector<Point>> squares;
     int lostFlag = false;
@@ -240,7 +243,47 @@ void *KylinBotMarkDetecThreadFunc(void *param)
     {
         squares.clear();
         double t = (double)getTickCount();
+        // 光学相机和Realsense切换
+#ifdef _USE_LIGHT_CAMERA
         capture >> frame;
+#endif
+
+#ifdef _USE_REALSENSE
+        if (_rs_camera->is_streaming())
+            _rs_camera->wait_for_frames();
+
+        //display_next_frame();
+        // Get current frames intrinsic data.
+        _depth_intrin = _rs_camera->get_stream_intrinsics(rs::stream::depth);
+        _color_intrin = _rs_camera->get_stream_intrinsics(rs::stream::color);
+        // Create depth image
+        cv::Mat depth16(_depth_intrin.height, _depth_intrin.width, CV_16U, (uchar *)_rs_camera->get_frame_data(rs::stream::depth));
+
+        // Create color image
+        cv::Mat rgb(_color_intrin.height, _color_intrin.width, CV_8UC3, (uchar *)_rs_camera->get_frame_data(rs::stream::color));
+
+        // Create color and depth image
+        cv::Mat depth16_rgb(_color_intrin.height, _color_intrin.width, CV_8UC3, (uchar *)_rs_camera->get_frame_data(rs::stream::color_aligned_to_depth));
+
+        // < 800
+        cv::Mat depth8u = depth16;
+        depth8u.convertTo(depth8u, CV_8UC1, 255.0 / 1000);
+        cvtColor(rgb,rgb,CV_BGR2RGB);
+        frame = rgb;
+#endif
+
+#ifdef _REALSENSE_SHOW
+        imshow(WINDOW_DEPTH, depth8u);
+        cvWaitKey(1);
+
+        cv::cvtColor(rgb, rgb, cv::COLOR_BGR2RGB);
+        imshow(WINDOW_RGB, rgb);
+        cvWaitKey(1);
+
+        cv::cvtColor(depth16_rgb, depth16_rgb, cv::COLOR_BGR2RGB);
+        imshow(WINDOW_DEPTH_RGB, depth16_rgb);
+        cvWaitKey(1);
+#endif
         if (frame.empty())
             continue;
 
@@ -261,6 +304,7 @@ void *KylinBotMarkDetecThreadFunc(void *param)
         case 0: //do nothing
             break;
         case 1: //detect squares
+        
             findSquares(src, frame, squares);
             LocationMarkes(squares);
             drawSquares(frame, squares);
@@ -413,8 +457,9 @@ void txMoveMsg(int16_t positionX, int16_t speedX, int16_t positionY, int16_t spe
 *  修改时间：2017-07-28
 *  TODO: 添加函数体
 *************************************************************************/
-void txClawBoardMsg(int16_t positionClaw, int16_t speedClaw, int16_t positionBoard, int16_t speedBoard)
+void txClawBoardMsg(int16_t clawOpenClose, int16_t clawUpDown, int16_t boardForwardBack)
 {
+
 }
 
 /*************************************************************************
@@ -499,36 +544,48 @@ void testVisionProcessFun(int mode)
 *************************************************************************/
 int testUARTFun()
 {
-    const char *device = "/dev/ttyUSB1";
-    if (connect_serial(device, 9600) == -1)
+    const char *device = "/dev/ttyUSB0";
+    if (connect_serial(device, 115200) == -1)
     {
         printf("serial open error!\n");
         return -1;
     }
     while (true)
     {
-        //unsigned char txBuff[2] = {'A','B'};
-        //cout << write_serial(txBuff, sizeof(txBuff), TIMEOUT) << endl;
+        int txLength = sizeof(txMoveClawBoardMsg);
+        txMoveClawBoardMsg.head = 0XAEAE;
+        txMoveClawBoardMsg.positionX = 1;
+        txMoveClawBoardMsg.speedX = 2;
+        uint8_t txBuffMsg[txLength];
+        txMoveClawBoardMsg.end = 0XEAEA;
+        // 将结构体转换成字节数据
+        memcpy(txBuffMsg, &txMoveClawBoardMsg, txLength);
+        write_serial(txBuffMsg, txLength, TIMEOUT);
+
+
+        // unsigned char txBuff[2] = {'A','B'};
+        // cout << write_serial(txBuff, sizeof(txBuff), TIMEOUT) << endl;
 
         // unsigned char rxBuff;
         // read_serial(&rxBuff, sizeof(rxBuff), TIMEOUT);
         // cout << "rxBuff: "<<rxBuff<<endl;
-        typedef struct dataStruct
-        {
-            uint16_t x;
-            uint16_t y;
-        } dataStruct;
-        dataStruct data;
 
-        int rxLength = sizeof(data);
-        uint8_t rxBuffMsg[rxLength];
-        // 将结构体转换成字节数据
-        int readLength = read_serial(rxBuffMsg, rxLength, TIMEOUT);
-        if (readLength != 0)
-        {
-            memcpy(&data, rxBuffMsg, rxLength);
-            cout << data.x << " " << data.y << endl;
-        }
+        // typedef struct dataStruct
+        // {
+        //     uint16_t x;
+        //     uint16_t y;
+        // } dataStruct;
+        // dataStruct data;
+
+        // int rxLength = sizeof(data);
+        // uint8_t rxBuffMsg[rxLength];
+        // // 将结构体转换成字节数据
+        // int readLength = read_serial(rxBuffMsg, rxLength, TIMEOUT);
+        // if (readLength != 0)
+        // {
+        //     memcpy(&data, rxBuffMsg, rxLength);
+        //     cout << data.x << " " << data.y << endl;
+        // }
 
         sleep(1);
     }
@@ -541,23 +598,6 @@ int main()
 
     signal(SIGINT, sigfunc); // 设置信号, 对 ctrl+C 进行处理, 终止程序
 
-    // 测试串口
-    return (testUARTFun());
-
-    // 相机相关参数设定
-    if (!setcamera())
-    {
-        cout << "Setup camera failure. Won't do anything." << endl;
-        return -1;
-    }
-
-
-    cout << sizeof(txMoveClawBoardMsg) << endl;
-    cout << sizeof(rxMoveClawBoardMsg) << endl;
-
-    // 系统初始化
-    init();
-
     // 打开串口
     /*
     const char *device = "/dev/ttyTHS2";
@@ -567,6 +607,36 @@ int main()
         return -1;
     }
     */
+
+    // 测试串口
+    return (testUARTFun());
+    
+    // 相机相关参数设定
+#ifdef _USE_LIGHT_CAMERA
+    if (!setcamera())
+    {
+        cout << "Setup camera failure. Won't do anything." << endl;
+        return -1;
+    }
+#endif
+    // 打开 RealSense
+#ifdef _USE_REALSENSE
+    rs::log_to_console(rs::log_severity::warn);
+
+    if (!initialize_streaming())
+    {
+        std::cout << "Unable to locate a camera" << std::endl;
+        rs::log_to_console(rs::log_severity::fatal);
+        return EXIT_FAILURE;
+    }
+    // setup_windows();
+#endif
+
+    cout << sizeof(txMoveClawBoardMsg) << endl;
+    cout << sizeof(rxMoveClawBoardMsg) << endl;
+
+    // 系统初始化
+    init();
 
     // 创建线程
     MyThread kylibotMsgPullerTread;     //数据读取
@@ -596,7 +666,7 @@ int main()
             // 发送小车前进指令
             // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
             txMoveMsg(tx, X_SPEED, tz, Y_SPEED, ry, Z_SPEED);
-            txClawBoardMsg(0, 0, 0, 0);
+            txClawBoardMsg(0, 0, 0);
 
             // TODO: 根据线程中的标志位切换来修改 if 语句, 对照之前的程序
             if (tx < DISTANCE_RECTANGLE_TO_ARROW)
@@ -616,7 +686,7 @@ int main()
             // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
             // TODO: 确认坐标系
             txMoveMsg(tx, X_SPEED, tz, Y_SPEED, ry, Z_SPEED);
-            txClawBoardMsg(0, 0, 0, 0);
+            txClawBoardMsg(0, 0, 0);
             // TODO: 根据线程中的标志位切换来修改 if 语句, 对照之前的程序
             if (tx < DISTANCE_RECTANGLE_TO_ARROW)
             {
@@ -634,9 +704,9 @@ int main()
             // 小车静止不动
             txMoveMsg(0, 0, 0, 0, 0, 0);
             // TODO: 爪子应该是先合拢, 再升高, 挡板的速度需要再修改
-            txClawBoardMsg(0, CLAW_SPEED, 0, BOARD_SPEED);
+            txClawBoardMsg(0, 0, 0);
             // TODO: 根据爪子升高的位置来修改 if 语句
-            if (rxMoveClawBoardMsg.positionClaw > CLAW_HEIGHT)
+            if (rxMoveClawBoardMsg.clawUpDown == CLAW_MAX_UP)
             {
                 // TODO: 添加校准函数的位置
                 workState = 4;
@@ -654,7 +724,7 @@ int main()
             // TODO: 修改 DISTANCE_BACKWARDS
             txMoveMsg(0, X_SPEED, 0, Y_SPEED, 0, 0);
             // 保持爪子不动
-            txClawBoardMsg(0, 0, 0, 0);
+            txClawBoardMsg(0, 0, 0);
             // TODO: 到达指定位置, 满足 if 条件, 注意修改 if 条件
             if (1)
             {
@@ -673,7 +743,7 @@ int main()
             // TODO: 修改 DISTANCE_LEFTWARDS
             txMoveMsg(0, X_SPEED, 0, Y_SPEED, 0, 0);
             // 保持爪子不动
-            txClawBoardMsg(0, 0, 0, 0);
+            txClawBoardMsg(0, 0, 0);
             // TODO: 到达指定位置, 满足 if 条件, 注意修改 if 条件
             if (1)
             {
@@ -691,7 +761,7 @@ int main()
             // 发送小车前进指令
             // TODO: 根据底层数据格式修改单位, 不能忘了！！！！
             txMoveMsg(tx, X_SPEED, tz, Y_SPEED, ry, Z_SPEED);
-            txClawBoardMsg(0, 0, 0, 0);
+            txClawBoardMsg(0, 0, 0);
             // TODO: 根据线程中的标志位切换来修改 if 语句, 对照之前的程序
             if (tx < DISTANCE_RECTANGLE_TO_ARROW)
             {
@@ -752,7 +822,7 @@ int main()
             // TODO: 修改 DISTANCE_LEFTWARDS
             txMoveMsg(0, X_SPEED, 0, Y_SPEED, 0, 0);
             // 保持爪子不动
-            txClawBoardMsg(0, 0, 0, 0);
+            txClawBoardMsg(0, 0, 0);
             // TODO: 到达指定位置, 满足 if 条件, 注意修改 if 条件
             if (1)
             {

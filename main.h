@@ -31,6 +31,9 @@
 #include "RMVideoCapture.hpp"
 #include "Markdetection.h"
 
+using namespace std;
+using namespace cv;
+using namespace rs;
 
 /*************************************************************************
 *  
@@ -61,8 +64,8 @@
 #define DISTANCE_LEFTWARDS 0 
 
 // 3. 位置控制区
-// 爪子上升高度
-#define CLAW_HEIGHT 0
+// 爪子上升到最高点
+#define CLAW_MAX_UP 0
 
 
 
@@ -82,6 +85,11 @@
 
 #define CONST_ONE 0X0001
 
+// 6. 光学相机和RealSense切换
+// #define _USE_REALSENSE
+// #define _REALSENSE_SHOW
+#define _USE_LIGHT_CAMERA
+
 // 6. 视觉相关
 // 摄像头与小车轴心的固定偏移
 #define DIFFCONST 101
@@ -91,7 +99,7 @@
 *  变量区
 *  
 *  
-*************************************************************************/
+*************************#include ************************************************/
 // 任务计时
 double missionStartTimeUs = 0;
 double missionEndTimeUs = 0;
@@ -114,6 +122,23 @@ bool finishDetectBoxFlag_PutBox = false;         // 矩形引导完成放盒子
 bool finishDetectArrowFlag_GrabBox = false;     // 箭头检测完成抓盒子
 bool finishDetectArrowFlag_PutBox = false;      // 箭头检测完成放盒子
 
+// 3. RealSense 区
+extern context _rs_ctx;
+extern device *_rs_camera;
+extern intrinsics _depth_intrin;
+extern intrinsics _color_intrin;
+extern bool _loop;
+
+// Window size and frame rate
+extern int const INPUT_WIDTH;
+extern int const INPUT_HEIGHT;
+extern int const FRAMERATE;
+
+// Named windows
+extern char *const WINDOW_DEPTH;
+extern char *const WINDOW_RGB;
+extern char *const WINDOW_DEPTH_RGB;
+
 
 /*************************************************************************
 *  
@@ -125,34 +150,9 @@ bool finishDetectArrowFlag_PutBox = false;      // 箭头检测完成放盒子
 // UART 通信数据类型
 typedef struct
 {
-    // 注意长度
     // 数据头
     int16_t head;
-    // 各种状态标志位
-    uint16_t flags;               
     
-    // 小车的三个轴
-    int16_t positionX;
-    int16_t speedX;
-    int16_t positionY;
-    int16_t speedY;
-    int16_t positionZ;
-    int16_t speedZ;
-    
-    // 爪子和挡板
-    int16_t clawOpenClose;      // 爪子合拢和张开
-    int16_t positionClaw;       // 爪子升高的位置
-    int16_t speedClaw;          // 爪子上升的速度
-
-    // TODO: 挡板只有推和未推两种状态? 可以精简
-    int16_t positionBoard;      // 挡板的位置
-    int16_t speedBoard;         // 挡板的速度
-}txMoveClawBoardMsgStruct;
-
-typedef struct
-{
-    // 数据头
-    int16_t head;
     uint16_t flags;               // 各种状态标志位
     // 小车的三个轴
     int16_t positionX;
@@ -164,17 +164,20 @@ typedef struct
     
     // 爪子和挡板
     int16_t clawOpenClose;      // 爪子合拢和张开
-    int16_t positionClaw;       // 爪子升高的位置
-    int16_t speedClaw;          // 爪子上升的速度
+    int16_t clawUpDown;       // 爪子升高的位置
+    //int16_t speedClaw;          // 爪子上升的速度
 
     // TODO: 挡板只有推和未推两种状态? 可以精简
-    int16_t positionBoard;      // 挡板的位置
-    int16_t speedBoard;         // 挡板的速度
-}rxMoveClawBoardMsgStruct;
+    int16_t boardForwardBack;      // 挡板的位置
+    // int16_t speedBoard;         // 挡板的速度
+
+    int16_t end;
+}MoveClawBoardMsgStruct;
 
 // UART 通信数据
-txMoveClawBoardMsgStruct txMoveClawBoardMsg;
-rxMoveClawBoardMsgStruct rxMoveClawBoardMsg;
+MoveClawBoardMsgStruct txMoveClawBoardMsg;  //发送的数据
+MoveClawBoardMsgStruct rxMoveClawBoardMsg;  //接收的数据
+
 
 
 /*************************************************************************
@@ -186,5 +189,7 @@ rxMoveClawBoardMsgStruct rxMoveClawBoardMsg;
 *************************************************************************/
 bool graspBoxes();
 bool pileBoxes();
+extern bool initialize_streaming();
+extern void setup_windows();
 
 #endif
